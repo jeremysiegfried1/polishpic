@@ -4,8 +4,8 @@ import { Inter } from 'next/font/google'
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata = {
-  title: 'PolishPic - #1 AI Headshot Generator for Professionals 2025',
-  description: 'Studio-quality business headshots in minutes. Natural AI enhancements, corporate backdrops. Trusted by 50k+ pros.',
+  title: 'PolishPic - Free Online AI Headshot Generator',
+  description: 'Create professional headshots from your selfie with AI. Natural enhancements for business profiles.',
 }
 
 export default function RootLayout({ children }) {
