@@ -3,18 +3,21 @@
 @tailwind utilities;
 
 @layer base {
-  body { @apply bg-white text-gray-900 antialiased; }
-  h1 { @apply font-bold text-5xl md:text-6xl leading-tight; }
-  p { @apply text-lg leading-relaxed; }
+  body { @apply bg-gradient-to-br from-slate-50 to-indigo-50 text-gray-900 antialiased; }
+  h1 { @apply font-black text-4xl md:text-6xl leading-tight bg-gradient-to-r from-indigo-600 to-navy-600 bg-clip-text text-transparent; }
+  h2 { @apply font-bold text-3xl md:text-4xl text-gray-900; }
+  p { @apply text-lg text-gray-600 leading-relaxed; }
 }
 
 @layer components {
-  .btn-primary { @apply bg-indigo-600 text-white font-semibold py-4 px-8 rounded-full shadow-md hover:bg-indigo-700 transition-all duration-300; }
-  .section { @apply py-20; }
-  .card { @apply bg-white rounded-3xl shadow-lg p-6; }
-  .example-img { @apply rounded-2xl shadow-md; }
+  .btn-primary { @apply bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold py-4 px-8 rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300; }
+  .card { @apply bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl p-6 border border-white/20; }
+  .section { @apply py-20 px-8; }
+  .example-img { @apply rounded-2xl shadow-lg hover:shadow-2xl transition-shadow; }
 }
 
 /* Animations */
-.fade-in-up { animation: fadeInUp 1s ease-out; }
-@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fadeIn 1s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.carousel-dot { @apply w-3 h-3 bg-indigo-300 rounded-full mx-1 transition-colors; }
+.carousel-dot.selected { @apply bg-indigo-600; }
