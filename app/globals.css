@@ -2,18 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: 'Inter', sans-serif;
+@layer base {
+  body { @apply bg-white text-gray-900; }
 }
 
-.overlay-frame {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 80%;
-  height: 80%;
-  border: 2px dashed white;
-  border-radius: 50%;
-  pointer-events: none;
+@layer components {
+  .btn-primary { @apply bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105; }
+  .btn-secondary { @apply bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors; }
+  .preview-card { @apply relative bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100; }
+  .loading-spinner { @apply border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin; }
+  .overlay-frame { @apply absolute inset-0 pointer-events-none; }
+  .face-frame { @apply border-2 border-dashed border-white rounded-full opacity-70; }
 }
+
+/* Smooth fade-ins */
+.fade-in { animation: fadeIn 0.5s ease-in; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
