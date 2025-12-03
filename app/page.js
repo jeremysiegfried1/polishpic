@@ -9,71 +9,86 @@ export default function Home() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const [enhancedImage, setEnhancedImage] = useState(null);
-  const [selectedBackdrop, setSelectedBackdrop] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [subtlety, setSubtlety] = useState(50); // 0-100 slider
   const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [faceDetected, setFaceDetected] = useState(false);
 
   const backdrops = [
-    { name: 'Office Blur', url: 'https://www.freepik.com/free-photo/blurred-office-background_1234567.jpg' }, // Replace with real free URLs from Freepik/Unsplash
-    { name: 'Studio Gray', url: 'https://unsplash.com/photos/gray-studio-background-abc123.jpg' },
-    { name: 'Modern White', url: 'https://unsplash.com/photos/white-office-wall-def456.jpg' },
-    { name: 'Professional Blue', url: 'https://freepik.com/free-photo/blue-gradient-background-ghi789.jpg' },
-    { name: 'Corporate Green', url: 'https://unsplash.com/photos/green-office-backdrop-jkl012.jpg' },
+    { name: 'Office Blur', url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-4.0.3&w=800' },
+    { name: 'Studio Gray', url: 'https://images.unsplash.com/photo-1510070112810-d4f60d7c2b6c?ixlib=rb-4.0.3&w=800' },
+    { name: 'Clean White', url: 'https://images.unsplash.com/photo-1558618666-194e9df0e39b?ixlib=rb-4.0.3&w=800' },
+    { name: 'Modern Blue', url: 'https://images.unsplash.com/photo-1557682257-2f9c37c9d3e8?ixlib=rb-4.0.3&w=800' },
+    { name: 'Corporate Dark', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&w=800' },
   ];
 
   useEffect(() => {
-    async function loadModels() {
-      await faceapi.nets.tinyFaceDetector.loadFromUri('/models'); // Download models folder from face-api.js GitHub and host in public/
-      await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
-      setModelsLoaded(true);
-    }
     loadModels();
   }, []);
+
+  const loadModels = async () => {
+    try {
+      await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+      await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+      setModelsLoaded(true);
+    } catch (err) {
+      console.error('Model load error:', err);
+    }
+  };
 
   const openCamera = async () => {
     setIsCameraOpen(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-      detectFace(); // Start face detection for frame
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
+      videoRef.current.srcObject = stream;
+      videoRef.current.play();
+      detectFace();
     } catch (err) {
-      alert("Camera access denied or not available");
+      alert('Camera access needed for magic. Allow and retry!');
     }
   };
 
   const detectFace = async () => {
     if (!modelsLoaded || !videoRef.current) return;
-    const detection = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
-    if (detection) {
-      // Draw frame around face (oval guide)
+    const video = videoRef.current;
+    const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+    if (detections) {
+      setFaceDetected(true);
+      // Draw oval frame around face
       const canvas = canvasRef.current;
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const landmarks = detection.landmarks;
-      // Simple oval frame around face
-      ctx.beginPath();
-      ctx.ellipse(landmarks.getJawOutline()[8].x, landmarks.getJawOutline()[8].y, 150, 200, 0, 0, 2 * Math.PI);
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 5]);
-      ctx.stroke();
+      if (canvas) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const box = detections.detection.box;
+        ctx.beginPath();
+        ctx.ellipse(box.x + box.width / 2, box.y + box.height / 2, box.width / 1.5, box.height, 0, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+      }
+    } else {
+      setFaceDetected(false);
     }
     requestAnimationFrame(detectFace);
   };
 
   const capturePhoto = () => {
+    if (!faceDetected) {
+      alert('Position your face in the oval for best results!');
+      return;
+    }
+    setLoading(true);
     const canvas = document.createElement('canvas');
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
     const imageData = canvas.toDataURL('image/png');
     setCapturedImage(imageData);
-    applyEnhancements(imageData);
+    setTimeout(() => applyEnhancements(imageData), 500); // Simulate processing
   };
 
   const applyEnhancements = (imageSrc) => {
@@ -86,108 +101,151 @@ export default function Home() {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
 
-      // Lighting (brightness/contrast)
-      ctx.filter = 'brightness(1.1) contrast(1.05)';
+      // Subtlety-based filters (natural: low values = minimal changes)
+      const bright = 1 + (subtlety / 100) * 0.15;
+      const contrast = 1 + (subtlety / 100) * 0.1;
+      const blur = (subtlety / 100) * 2; // px
+      const sat = 1 + (subtlety / 100) * 0.3;
 
-      // Skin smoothing (simple blur on face area - use faceapi for position)
-      // For simplicity, blur whole but in real, use landmarks
-      ctx.filter += ' blur(1px)';
-
-      // Teeth whitening & eye brightening (color adjust - detect with landmarks)
-      // Placeholder: Increase saturation on mouth/eyes areas
-      ctx.filter += ' saturate(1.2)';
-
+      ctx.filter = `brightness(${bright}) contrast(${contrast}) blur(${blur}px) saturate(${sat})`;
       ctx.drawImage(img, 0, 0);
+
+      // Face-specific: Use landmarks for eye/teeth (simplified)
+      // In full, detect landmarks and adjust regions—here, global for MVP
+
       const enhanced = canvas.toDataURL('image/png');
       setEnhancedImage(enhanced);
+      setLoading(false);
+      setShowPreview(true);
     };
   };
 
-  const applyBackdrop = (backdropUrl) => {
+  const applyBackdrop = (url, isSelected = false) => {
     if (!enhancedImage) return;
     const img = new Image();
     img.src = enhancedImage;
     img.onload = () => {
-      const backdropImg = new Image();
-      backdropImg.src = backdropUrl;
-      backdropImg.onload = () => {
+      const backdrop = new Image();
+      backdrop.src = url;
+      backdrop.crossOrigin = 'anonymous';
+      backdrop.onload = () => {
         const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = 800;
+        canvas.height = 600;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(backdropImg, 0, 0, canvas.width, canvas.height); // Backdrop first
-        ctx.drawImage(img, 0, 0); // Face on top
-        // Add watermark
-        ctx.font = '30px Arial';
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.fillText('PolishPic Watermark', 20, canvas.height - 20);
-        setEnhancedImage(canvas.toDataURL('image/png'));
+        ctx.drawImage(backdrop, 0, 0, canvas.width, canvas.height);
+        // Extract face (simple crop from original + resize)
+        ctx.drawImage(img, 200, 100, 400, 400);
+        // Watermark
+        ctx.font = 'bold 40px Inter';
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillText('PolishPic.com', 20, canvas.height - 30);
+        const final = canvas.toDataURL('image/png');
+        setEnhancedImage(final);
       };
     };
   };
 
   const closeCamera = () => {
     setIsCameraOpen(false);
-    if (videoRef.current?.srcObject) {
-      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
-    }
+    setShowPreview(false);
+    if (videoRef.current?.srcObject) videoRef.current.srcObject.getTracks().forEach(t => t.stop());
     setCapturedImage(null);
     setEnhancedImage(null);
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 flex flex-col items-center justify-center p-8">
-      <div className="text-center max-w-md bg-white rounded-3xl shadow-2xl p-10">
-        <h1 className="text-4xl font-extrabold text-indigo-900 mb-3">PolishPic</h1>
-        <p className="text-lg text-gray-600 mb-8">Natural headshot enhancer for pros. Free & instant.</p>
-
-        {!isCameraOpen ? (
-          <button
-            onClick={openCamera}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 px-10 rounded-xl shadow-md transform hover:scale-105 transition duration-300"
-          >
-            Start Enhancement
-          </button>
-        ) : (
-          <div className="relative">
-            <video ref={videoRef} className="w-full rounded-2xl shadow-lg" playsInline muted />
-            <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full overlay-frame" />
-            <button
-              onClick={capturePhoto}
-              className="mt-4 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-xl shadow-md"
-            >
-              Snap!
-            </button>
-            <button onClick={closeCamera} className="ml-4 bg-red-500 hover:bg-red-600 text-white py-3 px-6 rounded-xl">
-              Cancel
-            </button>
-          </div>
-        )}
-
-        {enhancedImage && (
-          <div className="mt-8">
-            <h2 className="text-2xl font-bold mb-4">Your Enhanced Headshot</h2>
-            <img src={enhancedImage} alt="Enhanced" className="w-full rounded-2xl shadow-lg mb-4" />
-            <div className="flex flex-wrap justify-center gap-2 mb-4">
-              {backdrops.map((bd) => (
-                <button
-                  key={bd.name}
-                  onClick={() => {
-                    setSelectedBackdrop(bd.url);
-                    applyBackdrop(bd.url);
-                  }}
-                  className="bg-gray-200 hover:bg-gray-300 py-2 px-4 rounded-lg"
-                >
-                  {bd.name}
-                </button>
-              ))}
-            </div>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-8 rounded-xl">
-              Buy HD ($4) - Coming Soon
-            </button>
-          </div>
-        )}
+    <main className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50 flex flex-col items-center justify-center p-4 font-inter">
+      {/* Hero Section */}
+      <div className="text-center mb-12 fade-in">
+        <h1 className="text-6xl font-extrabold text-gray-900 mb-4 bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
+          PolishPic
+        </h1>
+        <p className="text-xl text-gray-600 max-w-md mx-auto">
+          Natural AI headshot enhancer. Look 20% better in seconds—no uncanny fakes.
+        </p>
       </div>
+
+      {/* Camera Modal */}
+      {!showPreview ? (
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+          {!isCameraOpen ? (
+            <div className="p-8 text-center">
+              <button onClick={openCamera} className="btn-primary w-full mb-4">
+                Start Your Glow-Up
+              </button>
+              <p className="text-sm text-gray-500">One snap, instant pro results.</p>
+            </div>
+          ) : (
+            <div className="relative p-4">
+              <video ref={videoRef} className="w-full rounded-2xl" playsInline muted />
+              <canvas ref={canvasRef} className="overlay-frame" />
+              {faceDetected ? (
+                <p className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white bg-black bg-opacity-50 px-4 py-2 rounded-full text-sm">
+                  Perfect position—ready to snap!
+                </p>
+              ) : (
+                <p className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white bg-red-500 bg-opacity-80 px-4 py-2 rounded-full text-sm">
+                  Center your face in the oval
+                </p>
+              )}
+              <div className="flex justify-center space-x-4 mt-4">
+                <button onClick={capturePhoto} disabled={loading || !faceDetected} className="btn-primary">
+                  {loading ? <div className="loading-spinner w-6 h-6 mx-auto" /> : 'Snap!'}
+                </button>
+                <button onClick={closeCamera} className="btn-secondary">Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Preview Section */
+        <div className="w-full max-w-4xl space-y-6 fade-in">
+          {/* Before/After Toggle */}
+          <div className="flex justify-center space-x-4">
+            <img src={capturedImage} alt="Before" className="w-48 h-64 object-cover rounded-2xl shadow-lg" />
+            <div className="loading-spinner w-8 h-8 my-auto" /> {/* Arrow icon */}
+            <img src={enhancedImage} alt="After" className="w-48 h-64 object-cover rounded-2xl shadow-lg" />
+          </div>
+
+          {/* Subtlety Slider */}
+          <div className="text-center">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Enhancement Level: {subtlety}%</label>
+            <input
+              type="range"
+              min="0" max="100" value={subtlety}
+              onChange={(e) => { setSubtlety(e.target.value); applyEnhancements(capturedImage); }}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+            />
+          </div>
+
+          {/* Backdrop Selector */}
+          <div className="grid grid-cols-5 gap-4 justify-center">
+            {backdrops.map((bd) => (
+              <button
+                key={bd.name}
+                onClick={() => applyBackdrop(bd.url)}
+                className="btn-secondary w-full h-20 bg-cover bg-center rounded-xl overflow-hidden hover:shadow-md"
+                style={{ backgroundImage: `url(${bd.url})` }}
+              >
+                <span className="bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">{bd.name}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Final Preview & CTA */}
+          <div className="preview-card p-6 text-center">
+            <img src={enhancedImage} alt="Final" className="w-full max-w-md mx-auto rounded-2xl mb-4" />
+            <p className="text-sm text-gray-500 mb-4">Watermarked preview—unlock HD for crisp, print-ready quality.</p>
+            <button className="btn-primary w-full mb-2">Download HD ($4)</button>
+            <div className="flex justify-center space-x-4 text-sm text-gray-500">
+              <button onClick={() => {/* Share logic */}}>Share on LinkedIn</button>
+              <button onClick={() => {/* Share logic */}}>Share on X</button>
+            </div>
+            <button onClick={closeCamera} className="text-indigo-600 underline mt-4">Try Again</button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
