@@ -8,10 +8,16 @@ export default function Home() {
 
   const openCamera = async () => {
     setIsCameraOpen(true);
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      videoRef.current.play();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: "user" } 
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err) {
+      alert("Camera access denied or not available");
     }
   };
 
@@ -23,11 +29,11 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center p-6">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center p-6 p-6">
       <div className="text-center max-w-lg">
         <h1 className="text-5xl font-black text-gray-900 mb-4">PolishPic</h1>
         <p className="text-xl text-gray-700 mb-10">
-          Instant natural enhancement · Look 20 % better in seconds · No fake AI look
+          Instant natural enhancement · Look 20 % better in seconds · No fake AI
         </p>
 
         {!isCameraOpen ? (
@@ -43,6 +49,7 @@ export default function Home() {
               ref={videoRef}
               className="w-96 h-96 object-cover rounded-3xl shadow-2xl border-8 border-white"
               playsInline
+              muted
             />
             <button
               onClick={closeCamera}
@@ -50,7 +57,9 @@ export default function Home() {
             >
               ×
             </button>
-            <p className="text-center mt-6 text-gray-2xl">Perfect — now smile and tap the screen to capture!</p>
+            <p className="text-center mt-8 text-lg text-gray-800 font-medium">
+              Smile — then tap anywhere on the video to capture!
+            </p>
           </div>
         )}
       </div>
