@@ -4,23 +4,22 @@
 
 @layer base {
   :root {
-    --gradient-hero: linear-gradient(135deg, #1e3a8a 0%, #6366f1 100%);
+    --purple-primary: #6366f1;
+    --purple-hover: #4f46e5;
   }
-  body { @apply bg-gradient-to-br from-slate-50 via-white to-indigo-50 min-h-screen; }
-  h1 { @apply font-black text-4xl md:text-6xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-900 to-blue-900 mb-6; }
-  h2 { @apply font-bold text-3xl md:text-4xl text-gray-900 mb-8; }
-  p { @apply text-gray-600 leading-relaxed; }
+  body { @apply bg-white text-gray-900; }
+  h1 { @apply font-bold text-3xl md:text-5xl leading-tight; }
+  h2 { @apply font-bold text-2xl md:text-3xl mb-6; }
+  p { @apply text-base md:text-lg text-gray-700 leading-relaxed; }
 }
 
 @layer components {
-  .btn-primary { @apply bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold py-4 px-8 rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300; }
-  .card { @apply bg-white/90 backdrop-blur-md rounded-3xl shadow-xl p-6 border border-white/20 hover:shadow-2xl transition-all; }
-  .metric { @apply text-5xl font-black text-indigo-600; }
-  .example-carousel .carousel-slider { @apply rounded-3xl overflow-hidden shadow-2xl; }
+  .btn-purple { @apply bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-full transition-colors; }
+  .input-prompt { @apply w-full p-4 border border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none; }
+  .example-card { @apply rounded-lg shadow-md overflow-hidden; }
+  .style-chip { @apply bg-gray-100 hover:bg-purple-100 text-purple-600 py-2 px-4 rounded-full text-sm font-medium cursor-pointer transition-colors; }
+  .section { @apply py-16 px-4 md:px-8; }
 }
 
-/* Fade-ins */
-.fade-in { animation: fadeIn 0.8s ease-out; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-.delay-200 { animation-delay: 0.2s; }
-.delay-400 { animation-delay: 0.4s; }
+.fade-in { animation: fadeIn 0.6s ease-out; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
