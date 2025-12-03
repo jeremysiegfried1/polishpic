@@ -9,9 +9,10 @@ export default function Home() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const [enhancedImage, setEnhancedImage] = useState(null);
-  const [showPreview, setShowPreview] = useState(false);
+  const [selectedBackdrop, setSelectedBackdrop] = useState(0);
   const [subtlety, setSubtlety] = useState(60);
   const [loading, setLoading] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
@@ -26,53 +27,53 @@ export default function Home() {
   ];
 
   const examples = [
-    "https://images.unsplash.com/photo-1556157382-97eda2d9aa07?w=800",
-    "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=800",
-    "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800",
-    "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=800",
+    { before: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=400', after: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400' },
+    { before: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400', after: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400' },
+    { before: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400', after: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400' },
   ];
 
   useEffect(() => {
     const loadModels = async () => {
-      await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
-      await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
-      setModelsLoaded(true);
+      try {
+        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+        await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+        setModelsLoaded(true);
+      } catch (err) {
+        console.error(err);
+      }
     };
     loadModels();
   }, []);
 
   const openCamera = async () => {
     setIsCameraOpen(true);
-    setShowPreview(false);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-        detectFace();
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
+      videoRef.current.srcObject = stream;
+      videoRef.current.play();
+      detectFace();
     } catch (err) {
-      alert('Camera access required');
+      alert('Camera permission needed');
     }
   };
 
   const detectFace = async () => {
     if (!modelsLoaded || !videoRef.current) return;
-    const detection = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
-    setFaceDetected(!!detection);
-    if (detection) {
-      const box = detection.detection.box;
+    const detections = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+    setFaceDetected(!!detections);
+    if (detections) {
+      const box = detections.detection.box;
       const canvas = canvasRef.current;
       if (canvas) {
         canvas.width = videoRef.current.videoWidth;
         canvas.height = videoRef.current.videoHeight;
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
         ctx.lineWidth = 4;
         ctx.setLineDash([8, 8]);
         ctx.beginPath();
-        ctx.ellipse(box.x + box.width / 2, box.y + box.height / 2, box.width / 1.6, box.height / 1.1, 0, 0, Math.PI * 2);
+        ctx.ellipse(box.x + box.width / 2, box.y + box.height / 2, box.width / 1.5, box.height, 0, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
@@ -80,19 +81,18 @@ export default function Home() {
   };
 
   const capturePhoto = () => {
-    if (!faceDetected) return alert('Please center your face');
+    if (!faceDetected) return alert('Center your face in the frame');
     setLoading(true);
     const canvas = document.createElement('canvas');
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(videoRef.current, 0, 0);
+    canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
     const dataUrl = canvas.toDataURL('image/png');
     setCapturedImage(dataUrl);
-    enhancePhoto(dataUrl);
+    setTimeout(() => applyEnhancements(dataUrl), 1000);
   };
 
-  const enhancePhoto = (src) => {
+  const applyEnhancements = (src) => {
     const img = new Image();
     img.src = src;
     img.onload = () => {
@@ -100,150 +100,193 @@ export default function Home() {
       canvas.width = img.width;
       canvas.height = img.height;
       const ctx = canvas.getContext('2d');
-
+      ctx.drawImage(img, 0, 0);
       const level = subtlety / 100;
-      ctx.filter = `brightness(${1 + level * 0.2}) contrast(${1 + level * 0.15}) saturate(${1 + level * 0.3}) blur(${level * 1.5}px)`;
-      ctx.drawImage(img, 0,0);
-
+      ctx.filter = `brightness(${1 + level * 0.15}) contrast(${1 + level * 0.1}) saturate(${1 + level * 0.25}) blur(${level * 1}px)`;
+      ctx.drawImage(img, 0, 0);
       const result = canvas.toDataURL('image/png');
       setEnhancedImage(result);
-      setShowPreview(true);
       setLoading(false);
+      setShowPreview(true);
     };
   };
 
   const applyBackdrop = (url) => {
     if (!enhancedImage) return;
     const img = new Image();
-    img.crossOrigin = 'anonymous';
     img.src = enhancedImage;
     img.onload = () => {
       const bg = new Image();
-      bg.crossOrigin = 'anonymous';
       bg.src = url;
       bg.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = 800; c.height = 1000;
-        const ctx = c.getContext('2d');
-        ctx.drawImage(bg, 0, 0, c.width, c.height);
-        ctx.globalAlpha = 1;
-        ctx.drawImage(img, 150, 100, 500, 800);
-        ctx.font = 'bold 48px Arial';
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.fillText('PolishPic.com', 50, c.height - 50);
-        setEnhancedImage(c.toDataURL());
+        const canvas = document.createElement('canvas');
+        canvas.width = 800;
+        canvas.height = 1000;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 100, 150, 600, 700);
+        ctx.font = 'bold 40px Inter';
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillText('PolishPic', 50, canvas.height - 50);
+        setEnhancedImage(canvas.toDataURL('image/png'));
       };
     };
   };
 
-  const closeAll = () => {
-    setIsCameraOpen(false); setShowPreview(false); setCapturedImage(null); setEnhancedImage(null);
+  const closeModal = () => {
+    setIsCameraOpen(false);
+    setShowPreview(false);
+    setCapturedImage(null);
+    setEnhancedImage(null);
     if (videoRef.current?.srcObject) videoRef.current.srcObject.getTracks().forEach(t => t.stop());
   };
 
-  return (
-    <>
-      {/* === BEAUTIFUL BUSINESS LANDING PAGE === */}
-      {!isCameraOpen && !showPreview && (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50">
-          {/* Header */}
-          <header className="bg-white shadow-sm px-8 py-5 flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-indigo-700">PolishPic</h1>
-            <nav className="space-x-8 hidden lg:flex">
-              <a href="#examples" className="text-gray-600 hover:text-indigo-700">Examples</a>
-              <a href="#how" className="text-gray-600 hover:text-indigo-700">How it Works</a>
-              <a href="#pricing" className="text-gray-600 hover:text-indigo-700">Pricing</a>
-            </nav>
-          </header>
-
-          {/* Hero */}
-          <section className="pt-20 pb-32 px-8 text-center">
-            <h1 className="text-5xl md:text-6xl font-black text-gray-900 mb-6">
-              Professional LinkedIn & Business Headshots<br/>in Seconds
-            </h1>
-            <p className="text-xl text-gray-600 mb-10 max-w-3xl mx-auto">
-              No fake AI look — just natural enhancement, perfect lighting, and corporate backdrops. Look executive instantly.
-            </p>
-            <button onClick={openCamera} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xl font-bold py-5 px-12 rounded-full shadow-xl transform hover:scale-105 transition">
-              Create Your Headshot Now
-            </button>
-          </section>
-
-          {/* Examples */}
-          <section id="examples" className="py-20 bg-white">
-            <h2 className="text-4xl font-bold text-center mb-12">Real Results</h2>
-            <Carousel showThumbs={false} autoPlay infiniteLoop interval={4000} className="max-w-5xl mx-auto">
-              {examples.map((url, i) => (
-                <img key={i} src={url} alt="Professional headshot" className="rounded-2xl shadow-2xl mx-auto" />
-              ))}
-            </Carousel>
-          </section>
+  if (isCameraOpen || showPreview) {
+    return (
+      <div className="fixed inset-0 bg-gray-900 bg-opacity-95 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-full overflow-y-auto p-8">
+          <button onClick={closeModal} className="absolute top-6 right-6 text-3xl text-gray-500 hover:text-gray-700">×</button>
+          {!showPreview ? (
+            <>
+              <h2 className="text-3xl font-bold text-center mb-6 fade-in">Position for Perfect Shot</h2>
+              <div className="relative mx-auto max-w-lg mb-8">
+                <video ref={videoRef} className="w-full rounded-3xl shadow-xl" playsInline muted />
+                <canvas ref={canvasRef} className="absolute inset-0 -z-10" />
+              </div>
+              <div className="text-center">
+                <p className="text-lg text-gray-600 mb-4 fade-in"> {faceDetected ? 'Ready!' : 'Center face in oval'}</p>
+                <button onClick={capturePhoto} disabled={loading || !faceDetected} className="btn-primary w-full max-w-md mx-auto">
+                  {loading ? 'Enhancing...' : 'Snap & Polish'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="text-3xl font-bold text-center mb-6 fade-in">Your Executive Headshot</h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div className="fade-in">
+                  <p className="text-center font-medium mb-3">Original</p>
+                  <img src={capturedImage} className="rounded-3xl shadow-xl w-full" />
+                </div>
+                <div className="fade-in">
+                  <p className="text-center font-medium mb-3">Polished</p>
+                  <img src={enhancedImage} className="rounded-3xl shadow-xl w-full" />
+                </div>
+              </div>
+              <div className="mb-8 fade-in">
+                <label className="block text-center font-medium mb-3">Executive Polish Level: {subtlety}%</label>
+                <input type="range" min="0" max="100" value={subtlety} onChange={(e) => { setSubtlety(e.target.value); applyEnhancements(capturedImage); }} className="w-full h-2 rounded-lg slider" />
+              </div>
+              <div className="mb-8 fade-in">
+                <p className="text-center font-medium mb-4">Select Corporate Backdrop</p>
+                <div className="grid grid-cols-5 gap-3">
+                  {backdrops.map((b, i) => (
+                    <button key={i} onClick={() => { setSelectedBackdrop(i); applyBackdrop(b.url); }} className="rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition">
+                      <img src={b.url} alt={b.name} className="w-full h-20 object-cover" />
+                      <p className="text-xs text-center py-1 bg-indigo-600 text-white">{b.name}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="text-center fade-in">
+                <button className="btn-primary w-full max-w-md mx-auto mb-4">Download HD ($4)</button>
+                <p className="text-sm text-gray-500">Watermark removed on purchase. Share-ready for LinkedIn.</p>
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* === CAMERA + ENHANCEMENT MODAL === */}
-      {(isCameraOpen || showPreview) && (
-        <div className="fixed inset-0 bg-black flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-8 relative">
-            <button onClick={closeAll} className="absolute top-4 right-6 text-3xl text-gray-500 hover:text-gray-800">&times;</button>
+  return (
+    <main className="min-h-screen">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-sm shadow-lg fixed w-full z-40">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <h1 className="text-3xl font-black text-indigo-700">PolishPic</h1>
+          <nav className="hidden md:flex space-x-8">
+            <a href="#how" className="text-gray-700 hover:text-indigo-700 font-medium">How It Works</a>
+            <a href="#examples" className="text-gray-700 hover:text-indigo-700 font-medium">Examples</a>
+            <a href="#pricing" className="text-gray-700 hover:text-indigo-700 font-medium">Pricing</a>
+          </nav>
+        </div>
+      </header>
 
-            {!showPreview ? (
-              <>
-                <h2 className="text-3xl font-bold text-center mb-6">Position Your Face</h2>
-                <div className="relative mx-auto max-w-lg">
-                  <video ref={videoRef} className="w-full rounded-2xl" playsInline muted />
-                  <canvas ref={canvasRef} className="absolute inset-0" />
-                  {!faceDetected && <p className="text-center text-red-600 mt-4 font-medium">Center your face in the oval</p>}
-                </div>
-                <div className="text-center mt-8">
-                  <button onClick={capturePhoto} disabled={loading || !faceDetected} className="bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-4 px-12 rounded-full">
-                    {loading ? 'Enhancing...' : 'Snap & Enhance'}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h2 className="text-3xl font-bold text-center mb-6">Your Professional Headshot</h2>
+      {/* Hero */}
+      <section className="pt-24 pb-32 max-w-7xl mx-auto px-6 text-center fade-in">
+        <h1 className="mb-6">Elevate Your Professional Image</h1>
+        <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">AI-powered headshots for LinkedIn, resumes, and executive profiles. Natural enhancements, corporate backdrops—done in seconds.</p>
+        <button onClick={openCamera} className="btn-primary text-lg">Get Business-Ready Headshot</button>
+      </section>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                  <div>
-                    <p className="text-center font-medium mb-2">Original</p>
-                    <img src={capturedImage} className="rounded-2xl shadow-lg w-full" />
-                  </div>
-                  <div>
-                    <p className="text-center font-medium mb-2">Enhanced</p>
-                    <img src={enhancedImage} className="rounded-2xl shadow-lg w-full" />
-                  </div>
-                </div>
-
-                <div className="mb-8">
-                  <label className="block text-center font-medium mb-3">Enhancement Strength: {subtlety}%</label>
-                  <input type="range" min="0" max="100" value={subtlety} onChange={(e) => { setSubtlety(e.target.value); enhancePhoto(capturedImage); }} className="w-full h-3 rounded-lg appearance-none cursor-pointer" />
-                </div>
-
-                <div>
-                  <p className="text-center font-medium mb-4">Choose Background</p>
-                  <div className="grid grid-cols-3 gap-4">
-                    {backdrops.map(b => (
-                      <button key={b.name} onClick={() => applyBackdrop(b.url)} className="rounded-xl overflow-hidden shadow hover:shadow-xl transition">
-                        <img src={b.url} alt={b.name} className="w-full h-32 object-cover" />
-                        <p className="text-xs py-1 bg-black bg-opacity-50 text-white">{b.name}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="text-center mt-10">
-                  <button className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xl py-5 px-16 rounded-full shadow-xl">
-                    Download HD – $4
-                  </button>
-                  <p className="text-sm text-gray-500 mt-4">Watermark removed on purchase</p>
-                </div>
-              </>
-            )}
+      {/* How It Works */}
+      <section id="how" className="section max-w-7xl mx-auto px-6">
+        <h2 className="text-center mb-16 fade-in">Simple 3-Step Process</h2>
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="card text-center fade-in">
+            <div className="text-6xl mb-6">1</div>
+            <h3 className="text-2xl font-bold mb-4">Snap Your Selfie</h3>
+            <p>Open camera, center face in frame—AI guides you.</p>
+          </div>
+          <div className="card text-center fade-in delay-200">
+            <div className="text-6xl mb-6">2</div>
+            <h3 className="text-2xl font-bold mb-4">AI Polish</h3>
+            <p>Adjust lighting, skin, eyes with our executive slider.</p>
+          </div>
+          <div className="card text-center fade-in delay-400">
+            <div className="text-6xl mb-6">3</div>
+            <h3 className="text-2xl font-bold mb-4">Add Backdrop</h3>
+            <p>Choose office/studio style, download HD watermark-free.</p>
           </div>
         </div>
-      )}
-    </>
+      </section>
+
+      {/* Examples */}
+      <section id="examples" className="section bg-gradient-to-r from-indigo-50 to-slate-50 max-w-7xl mx-auto px-6">
+        <h2 className="text-center mb-16 fade-in">See the Transformation</h2>
+        <Carousel showThumbs={false} autoPlay infiniteLoop interval={3000} className="max-w-4xl mx-auto">
+          {examples.map((ex, i) => (
+            <div key={i} className="flex space-x-8 p-8">
+              <img src={ex.before} alt="Before" className="example-img w-1/2" />
+              <div className="my-auto text-4xl">→</div>
+              <img src={ex.after} alt="After" className="example-img w-1/2" />
+            </div>
+          ))}
+        </Carousel>
+      </section>
+
+      {/* Pricing Teaser */}
+      <section id="pricing" className="section max-w-7xl mx-auto px-6">
+        <h2 className="text-center mb-16 fade-in">Simple Pricing</h2>
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="card text-center fade-in">
+            <h3 className="text-2xl font-bold mb-4">Basic</h3>
+            <p className="text-3xl font-black text-indigo-600 mb-4">$4</p>
+            <p>Single HD Headshot + 1 Backdrop</p>
+          </div>
+          <div className="card text-center fade-in delay-200">
+            <h3 className="text-2xl font-bold mb-4">Pro</h3>
+            <p className="text-3xl font-black text-indigo-600 mb-4">$12</p>
+            <p>5 Headshots + Unlimited Backdrops</p>
+          </div>
+          <div className="card text-center fade-in delay-400">
+            <h3 className="text-2xl font-bold mb-4">Executive</h3>
+            <p className="text-3xl font-black text-indigo-600 mb-4">$29</p>
+            <p>Unlimited + Custom Edits</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-indigo-900 text-white py-12 px-8 text-center">
+        <p className="mb-4">© 2025 PolishPic. Trusted by 50k+ professionals. Privacy-focused—data deleted after use.</p>
+        <div className="space-x-4">
+          <a href="#" className="hover:underline">Privacy</a>
+          <a href="#" className="hover:underline">Terms</a>
+          <a href="#" className="hover:underline">Support</a>
+        </div>
+      </footer>
+    </main>
   );
 }
